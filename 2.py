@@ -1,5 +1,3 @@
-# import sys
-
 def process(memory):
     for i in range(0, len(memory), 4):
         opcode = memory[i]
