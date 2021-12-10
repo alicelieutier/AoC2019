@@ -19,13 +19,13 @@ def total_fuel_from_mass(mass):
         fuel = fuel_from_mass(fuel)
     return total_fuel
 
-if len(sys.argv) > 1:
-    # part 1
-    masses = get_lines_as_number(sys.argv[1])
-    print(sum_fuel_from_masses(masses, fuel_from_mass))
 
-    # part 2
-    print(sum_fuel_from_masses(masses, total_fuel_from_mass))
+# part 1
+masses = get_lines_as_number('input1')
+print(sum_fuel_from_masses(masses, fuel_from_mass))
+
+# part 2
+print(sum_fuel_from_masses(masses, total_fuel_from_mass))
 
 
 # tests 
