@@ -1,29 +1,59 @@
-def i_add(mem, p1, p2, p3, param_modes, **_):
+def i_add(mem, p1, p2, p3, param_modes, i, **_):
   p1 = p1 if param_modes[0] == 1 else mem[p1]
   p2 = p2 if param_modes[1] == 1 else mem[p2]
   mem[p3] = p1 + p2
-  return mem
+  return (mem, i + 4)
 
-def i_multiply(mem, p1, p2, p3, param_modes, **_):
+def i_multiply(mem, p1, p2, p3, param_modes, i, **_):
   p1 = p1 if param_modes[0] == 1 else mem[p1]
   p2 = p2 if param_modes[1] == 1 else mem[p2]
   mem[p3] = p1 * p2
-  return mem
+  return (mem, i + 4)
 
-def i_input(mem, p1, input, **_):
-  mem[p1] = input
-  return mem
+def i_input(mem, p1, input, i, **_):
+  mem[p1] = next(input)
+  return (mem, i + 2)
 
-def i_output(mem, p1, param_modes, **_):
+def i_output(mem, p1, param_modes, i, output, **_):
   p1 = p1 if param_modes[0] == 1 else mem[p1]
-  print('OUTPUT:', p1)
-  return mem
+  output.append(p1)
+  return (mem, i + 2)
+
+def i_jump_if_true(mem, p1, p2, param_modes, i, **_):
+  p1 = p1 if param_modes[0] == 1 else mem[p1]
+  p2 = p2 if param_modes[1] == 1 else mem[p2]
+  if p1 != 0:
+    return (mem, p2)
+  return (mem, i + 3)
+
+def i_jump_if_false(mem, p1, p2, param_modes, i, **_):
+  p1 = p1 if param_modes[0] == 1 else mem[p1]
+  p2 = p2 if param_modes[1] == 1 else mem[p2]
+  if p1 == 0:
+    return (mem, p2)
+  return (mem, i + 3)
+
+def i_less_than(mem, p1, p2, p3, param_modes, i, **_):
+  p1 = p1 if param_modes[0] == 1 else mem[p1]
+  p2 = p2 if param_modes[1] == 1 else mem[p2]
+  mem[p3] = 1 if p1 < p2 else 0
+  return (mem, i + 4)
+
+def i_equals(mem, p1, p2, p3, param_modes, i, **_):
+  p1 = p1 if param_modes[0] == 1 else mem[p1]
+  p2 = p2 if param_modes[1] == 1 else mem[p2]
+  mem[p3] = 1 if p1 == p2 else 0
+  return (mem, i + 4)
 
 opcodes = {
   1: (3, i_add),
   2: (3, i_multiply),
   3: (1, i_input),
   4: (1, i_output),
+  5: (2, i_jump_if_true),
+  6: (2, i_jump_if_false),
+  7: (3, i_less_than),
+  8: (3, i_equals),
   99: (0, lambda mem : mem), # remove?
 }
 
@@ -40,33 +70,20 @@ def parse_instruction(value):
   param_modes = [value // 10**i % 10 for i in range(2, 2 + params_needed)]
   return (opcode, tuple(param_modes))
 
-def execute(state, input=0, i=0):
-  opcode, param_modes = parse_instruction(state[i])
-  if opcode == 99:
-    return state
-  param_needed, fun = opcodes[opcode]
-  params = state[i + 1 : i + param_needed + 1]
-  return execute(fun(state, *params, param_modes=param_modes, input=input), i=i + param_needed + 1)
+def execute(state, input=[]):
+  input_gen = (item for item in input)
+  i = 0
+  output = []
+  while True:
+    opcode, param_modes = parse_instruction(state[i])
+    if opcode == 99: break
+    param_needed, fun = opcodes[opcode]
+    params = state[i + 1 : i + param_needed + 1]
+    state, i = fun(state, *params, param_modes=param_modes, input=input_gen, i=i, output=output)
+  return output
 
 if __name__ == "__main__":
-  # tests
-  assert parse_instruction(1002) == (2, (0, 1, 0))
-  assert parse_instruction(101) == (1, (1, 0, 0))
-
-  # add and multiply - day 1
-  assert(execute([1,0,0,0,99]) == [2,0,0,0,99])
-  assert(execute([2,3,0,3,99]) == [2,3,0,6,99])
-  assert(execute([1,1,1,4,99,5,6,0,99]) == [30,1,1,4,2,5,6,0,99])
-  assert(execute([2,4,4,5,99,0]) == [2,4,4,5,99,9801])
-  assert(execute([1,9,10,3,2,3,11,0,99,30,40,50]) == [3500,9,10,70,2,3,11,0,99,30,40,50])
-
-  # day 5 - TEST programme
-  # should return 0s except last value
-  #instruction before non zero output is wrong
-  TEST_programme = [3,225,1,225,6,6,1100,1,238,225,104,0,1102,83,20,225,1102,55,83,224,1001,224,-4565,224,4,224,102,8,223,223,101,5,224,224,1,223,224,223,1101,52,15,225,1102,42,92,225,1101,24,65,225,101,33,44,224,101,-125,224,224,4,224,102,8,223,223,1001,224,7,224,1,223,224,223,1001,39,75,224,101,-127,224,224,4,224,1002,223,8,223,1001,224,3,224,1,223,224,223,2,14,48,224,101,-1300,224,224,4,224,1002,223,8,223,1001,224,2,224,1,223,224,223,1002,139,79,224,101,-1896,224,224,4,224,102,8,223,223,1001,224,2,224,1,223,224,223,1102,24,92,225,1101,20,53,224,101,-73,224,224,4,224,102,8,223,223,101,5,224,224,1,223,224,223,1101,70,33,225,1101,56,33,225,1,196,170,224,1001,224,-38,224,4,224,102,8,223,223,101,4,224,224,1,224,223,223,1101,50,5,225,102,91,166,224,1001,224,-3003,224,4,224,102,8,223,223,101,2,224,224,1,224,223,223,4,223,99,0,0,0,677,0,0,0,0,0,0,0,0,0,0,0,1105,0,99999,1105,227,247,1105,1,99999,1005,227,99999,1005,0,256,1105,1,99999,1106,227,99999,1106,0,265,1105,1,99999,1006,0,99999,1006,227,274,1105,1,99999,1105,1,280,1105,1,99999,1,225,225,225,1101,294,0,0,105,1,0,1105,1,99999,1106,0,300,1105,1,99999,1,225,225,225,1101,314,0,0,106,0,0,1105,1,99999,1107,677,677,224,1002,223,2,223,1006,224,329,1001,223,1,223,1107,226,677,224,102,2,223,223,1005,224,344,101,1,223,223,108,677,677,224,1002,223,2,223,1006,224,359,101,1,223,223,107,677,677,224,1002,223,2,223,1006,224,374,1001,223,1,223,1007,677,677,224,102,2,223,223,1006,224,389,101,1,223,223,108,677,226,224,102,2,223,223,1006,224,404,101,1,223,223,1108,226,677,224,102,2,223,223,1005,224,419,1001,223,1,223,7,677,226,224,102,2,223,223,1005,224,434,101,1,223,223,1008,677,677,224,102,2,223,223,1006,224,449,1001,223,1,223,1007,677,226,224,1002,223,2,223,1006,224,464,101,1,223,223,1108,677,677,224,1002,223,2,223,1005,224,479,1001,223,1,223,107,226,226,224,1002,223,2,223,1005,224,494,101,1,223,223,8,226,677,224,102,2,223,223,1006,224,509,101,1,223,223,8,677,677,224,102,2,223,223,1006,224,524,101,1,223,223,1007,226,226,224,1002,223,2,223,1006,224,539,1001,223,1,223,107,677,226,224,102,2,223,223,1006,224,554,101,1,223,223,1107,677,226,224,1002,223,2,223,1006,224,569,1001,223,1,223,1008,226,677,224,102,2,223,223,1006,224,584,1001,223,1,223,1008,226,226,224,1002,223,2,223,1005,224,599,1001,223,1,223,7,677,677,224,1002,223,2,223,1005,224,614,1001,223,1,223,1108,677,226,224,1002,223,2,223,1005,224,629,101,1,223,223,7,226,677,224,1002,223,2,223,1005,224,644,1001,223,1,223,8,677,226,224,102,2,223,223,1005,224,659,101,1,223,223,108,226,226,224,102,2,223,223,1005,224,674,101,1,223,223,4,223,99,226]
-
-
-
+  assert execute([3,21,1008,21,8,20,1005,20,22,107,8,21,20,1006,20,31,1106,0,36,98,0,0,1002,21,125,20,4,20,1105,1,46,104,999,1105,1,46,1101,1000,1,20,4,20,1105,1,46,98,99], input=[4]) == [999]
 
 
 
